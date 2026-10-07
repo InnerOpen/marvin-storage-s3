@@ -16,6 +16,9 @@ dev = ["pytest>=8", "ruff>=0.11", "moto[s3]>=5"]
 
 # The seam that makes the plugin discoverable: Marvin scans this group at startup (asset provider) and in
 # each backup CronJob (backup target). One slug, `s3`, names both sides.
+[project.urls]
+Repository = "https://github.com/InnerOpen/marvin-storage-s3"
+
 [project.entry-points."marvin.storage_providers"]
 s3 = "marvin_storage_s3:plugin"
 

@@ -29,7 +29,6 @@ the chart removes that copy afterwards, so the SDK the Marvin image pins is the 
 plugins:
   packages:
     - https://github.com/InnerOpen/marvin-integration-sdk/archive/refs/heads/develop.tar.gz
-    # PLACEHOLDER: this repository isn't on GitHub yet. Swap in its real tarball URL (or a tag) once it is.
     - https://github.com/InnerOpen/marvin-storage-s3/archive/refs/heads/main.tar.gz
 ```
 
