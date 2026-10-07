@@ -1,0 +1,32 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      # A real S3 API for the conformance kit (moto covers the fast path). Started with `docker run`
+      # rather than a service container: MinIO needs the `server /data` arguments.
+      - name: Start MinIO
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
+            cgr.dev/chainguard/minio server /data
+          for i in $(seq 1 60); do curl -sf http://localhost:9000/minio/health/live && exit 0; sleep 1; done
+          docker logs minio; exit 1
+      - name: Test (moto + MinIO)
+        env:
+          MARVIN_S3_TEST_ENDPOINT: http://localhost:9000
+        run: uv run --extra dev pytest -q -rs
+      - name: Lint
+        run: |
+          uv run --extra dev ruff check .
+          uv run --extra dev ruff format --check .

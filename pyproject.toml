@@ -1,0 +1,43 @@
+[project]
+name = "marvin-storage-s3"
+version = "0.1.0"
+description = "S3-compatible storage for Marvin (Cloudflare R2, AWS S3, MinIO, Backblaze B2): an asset storage provider and a backup target."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    # 0.7: the storage contract (StorageProvider, BackupTarget, StoragePlugin, Setting) and its conformance kit.
+    "marvin-integration-sdk>=0.7,<1",
+    # 1.36: request_checksum_calculation / response_checksum_validation (R2 and older MinIO need "when_required").
+    "boto3>=1.36,<2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.11", "moto[s3]>=5"]
+
+# The seam that makes the plugin discoverable: Marvin scans this group at startup (asset provider) and in
+# each backup CronJob (backup target). One slug, `s3`, names both sides.
+[project.entry-points."marvin.storage_providers"]
+s3 = "marvin_storage_s3:plugin"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/marvin_storage_s3"]
+
+# Dev only: the SDK commit Marvin core pins (pyproject.toml there), so tests run against the contract the
+# image ships. Released installs take the SDK from plugins.packages / the index.
+[tool.uv.sources]
+marvin-integration-sdk = { git = "https://github.com/InnerOpen/marvin-integration-sdk", rev = "424927150c217fd02519ecd679c9d05b3b835c69" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["minio: runs against a real S3 API (MARVIN_S3_TEST_ENDPOINT, e.g. a MinIO container); skipped when unset"]
+
+[tool.ruff]
+line-length = 150
+target-version = "py311"
+
+[tool.ruff.lint]
+extend-select = ["I", "UP", "B"]
