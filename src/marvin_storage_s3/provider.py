@@ -9,6 +9,11 @@ it is the private S3 API, which browsers can't read.
 ``STORAGE_S3_PREFIX`` puts every key under a folder of the bucket (e.g. ``prod/``), so several
 environments can share one; Marvin's asset rows keep the plain key.
 
+A ``content_disposition`` entry in ``put``'s metadata (Marvin sends ``inline; filename="<original
+name>"``, RFC 6266/5987) is stored as the object's ``Content-Disposition`` rather than as user metadata:
+Marvin's keys carry no filename, so this is what a browser's "save as" offers when the file is fetched
+straight from the public domain.
+
 ``STORAGE_S3_CACHE_CONTROL`` (optional) is stored as each new object's ``Cache-Control``, which a
 CDN in front of the public domain and browsers honour. Marvin's asset keys carry a UUID, so a long
 lifetime is safe for them; it isn't ``immutable`` by default because a repair tool may rewrite a file
@@ -43,6 +48,8 @@ PRESIGN_SECONDS = "STORAGE_S3_PRESIGN_SECONDS"
 CACHE_CONTROL = "STORAGE_S3_CACHE_CONTROL"
 MAX_PRESIGN_SECONDS = 7 * 24 * 3600  # SigV4's limit
 META_SHA256 = "sha256"
+META_CONTENT_DISPOSITION = "content_disposition"
+"""The ``put`` metadata entry stored as the object's ``Content-Disposition`` header."""
 SPOOL = 8 * 1024 * 1024  # files up to this size stay in memory on their way in and out
 CHUNK = 1024 * 1024
 
@@ -60,7 +67,7 @@ def object_metadata(metadata: Mapping[str, Any] | None) -> dict[str, str]:
     used = 0
     for k, v in (metadata or {}).items():
         key = str(k).lower()
-        if key == META_SHA256 or not _META_KEY.match(key) or isinstance(v, (dict, list, tuple, set)) or v is None:
+        if key in (META_SHA256, META_CONTENT_DISPOSITION) or not _META_KEY.match(key) or isinstance(v, (dict, list, tuple, set)) or v is None:
             continue
         value = str(v)
         if not value.isascii() or not value.isprintable() or used + len(key) + len(value) > META_BUDGET:
@@ -68,6 +75,15 @@ def object_metadata(metadata: Mapping[str, Any] | None) -> dict[str, str]:
         out[key] = value
         used += len(key) + len(value)
     return out
+
+
+def content_disposition(metadata: Mapping[str, Any] | None) -> str | None:
+    """The ``content_disposition`` entry of an upload's metadata, if it can travel as a header (printable
+    ASCII; Marvin percent-encodes non-ASCII names, RFC 5987)."""
+    value = next((v for k, v in (metadata or {}).items() if str(k).lower() == META_CONTENT_DISPOSITION), None)
+    if not isinstance(value, str) or not value or not value.isascii() or not value.isprintable() or len(value) > 1024:
+        return None
+    return value
 
 
 def normalize_prefix(prefix: str | None) -> str:
@@ -147,6 +163,7 @@ class S3StorageProvider(StorageProvider):
             spool.seek(0)
             checksum = digest.hexdigest()
             object_meta = {**object_metadata(metadata), META_SHA256: checksum}
+            disposition = content_disposition(metadata)
             self.client.put_object(
                 Bucket=self.bucket,
                 Key=self._key(storage_key),
@@ -155,6 +172,7 @@ class S3StorageProvider(StorageProvider):
                 ContentType=content_type or "application/octet-stream",
                 Metadata=object_meta,
                 **({"CacheControl": self.cache_control} if self.cache_control else {}),
+                **({"ContentDisposition": disposition} if disposition else {}),
             )
         return StorageMetadata(storage_key, size, content_type, checksum, metadata, "sha256")
 

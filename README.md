@@ -117,11 +117,24 @@ recommended setup: files are cached at the edge, and the URLs stay stable, so pu
 them. Without it, asset URLs are presigned GETs that expire. The bare endpoint URL is never handed out,
 because on R2 that is the private S3 API and browsers can't read from it.
 
+**Per-workspace domains.** A platform admin can give one workspace its own public domain (Marvin's
+**Admin → Storage**). Marvin then builds that workspace's URLs from this provider with
+`STORAGE_REMOTE_PUBLIC_URL` replaced by the workspace's domain, so the domain must serve the same bucket
+(another R2 custom domain on it, or a Cloudflare for SaaS custom hostname pointing at one). The key, and
+`STORAGE_S3_PREFIX`, stay in the path.
+
+**Download names.** Marvin's keys are opaque (`<workspace code>/<yyyy>/<mm>/<uuid>.<ext>`): no filename.
+A `content_disposition` entry in an upload's metadata (Marvin sends `inline; filename="<original
+name>"`, with `filename*=UTF-8''…` for non-ASCII names) is stored as the object's `Content-Disposition`,
+not as user metadata, so a browser's *Save as* on the public URL offers the real name. A value that
+isn't printable ASCII is dropped (the upload still succeeds). Objects uploaded before this have none;
+Marvin's `storage_migrate --rekey` copies them to opaque keys with it.
+
 **Turning it on.** With the plugin installed and the settings above present, a platform admin chooses
 where new uploads go under **Admin → Storage** (`STORAGE_PROVIDER` is only the default, so it can stay
 `local`), and can switch back at any time. Existing assets keep serving from wherever their row says
 they live, so switching never breaks a URL. Moving the old files is Marvin's
-`python -m marvin.scripts.storage_migrate --to s3 [--dry-run] [--verify]` (and `--to local` to roll
+`python -m marvin.scripts.storage_migrate --to s3 --rekey [--dry-run] [--verify]` (and `--to local` to roll
 back); `/assets/<key>` URLs stored before the move redirect to the new location. If the plugin or its
 settings go missing later, new uploads fall back to `STORAGE_PROVIDER` and the Storage page says why.
 

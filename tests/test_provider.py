@@ -92,6 +92,7 @@ def test_object_metadata_keeps_only_what_fits_in_headers():
         {"original_filename": "a.png", "Alt": "x", "café": "y", "note": "café", "nested": {"a": 1}, "none": None, "sha256": "spoof"}
     )
     assert kept == {"original_filename": "a.png", "alt": "x"}
+    assert object_metadata({"content_disposition": 'inline; filename="a.png"'}) == {}  # a header, not user metadata
     assert sum(len(k) + len(v) for k, v in object_metadata({f"k{i}": "v" * 100 for i in range(40)}).items()) <= 1800
 
 
@@ -124,3 +125,21 @@ def test_kms_etags_are_not_taken_for_md5():
 def test_repr_hides_the_secret():
     conn = S3Connection(bucket="b", region="us-east-1", access_key="AKIAEXAMPLE", secret_key="super-secret")
     assert "super-secret" not in repr(conn)
+
+
+def test_content_disposition_is_stored_as_the_objects_header_not_user_metadata(connection, raw):
+    """Marvin's keys carry no filename: the original name travels as Content-Disposition."""
+    provider = S3StorageProvider(connection)
+    ascii_cd = 'inline; filename="IMG 9750.jpeg"'
+    provider.put("abc/2026/10/u.jpeg", BytesIO(b"jpg"), "image/jpeg", {"content_disposition": ascii_cd, "alt": "x"})
+    head = raw.head_object(Bucket=connection.bucket, Key="abc/2026/10/u.jpeg")
+    assert head["ContentDisposition"] == ascii_cd
+    assert head["Metadata"] == {"alt": "x", "sha256": hashlib.sha256(b"jpg").hexdigest()}
+
+    utf8_cd = "inline; filename=\"Cafe.png\"; filename*=UTF-8''Caf%C3%A9.png"
+    provider.put("abc/2026/10/v.png", BytesIO(b"png"), "image/png", {"content_disposition": utf8_cd})
+    assert raw.head_object(Bucket=connection.bucket, Key="abc/2026/10/v.png")["ContentDisposition"] == utf8_cd
+
+    # Without one (or with one that can't be a header), no header is set.
+    provider.put("abc/2026/10/w.png", BytesIO(b"png"), "image/png", {"content_disposition": 'inline; filename="café.png"'})
+    assert "ContentDisposition" not in raw.head_object(Bucket=connection.bucket, Key="abc/2026/10/w.png")
