@@ -64,6 +64,13 @@ def test_put_stores_content_type_and_sha256_so_checksums_need_no_download(connec
     assert (got.content_type, got.checksum, got.checksum_algorithm) == ("image/png", sha, "sha256")
 
 
+def test_cache_control_is_stored_with_new_objects_when_set(connection, raw):
+    S3StorageProvider(connection).put("ws/plain.png", BytesIO(b"png"), "image/png")
+    assert "CacheControl" not in raw.head_object(Bucket=connection.bucket, Key="ws/plain.png")
+    S3StorageProvider(connection, cache_control="public, max-age=86400").put("ws/cached.png", BytesIO(b"png"), "image/png")
+    assert raw.head_object(Bucket=connection.bucket, Key="ws/cached.png")["CacheControl"] == "public, max-age=86400"
+
+
 def test_objects_written_by_other_tools_fall_back_to_the_etag_md5(connection, raw):
     raw.put_object(Bucket=connection.bucket, Key="ws/old.txt", Body=b"old")
     provider = S3StorageProvider(connection)

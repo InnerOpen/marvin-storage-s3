@@ -8,6 +8,11 @@ it is the private S3 API, which browsers can't read.
 
 ``STORAGE_S3_PREFIX`` puts every key under a folder of the bucket (e.g. ``prod/``), so several
 environments can share one; Marvin's asset rows keep the plain key.
+
+``STORAGE_S3_CACHE_CONTROL`` (optional) is stored as each new object's ``Cache-Control``, which a
+CDN in front of the public domain and browsers honour. Marvin's asset keys carry a UUID, so a long
+lifetime is safe for them; it isn't ``immutable`` by default because a repair tool may rewrite a file
+in place (``repair_character_mattes``).
 """
 
 from __future__ import annotations
@@ -35,6 +40,7 @@ ENV = EnvNames(
 PREFIX = "STORAGE_S3_PREFIX"
 PUBLIC_URL = "STORAGE_REMOTE_PUBLIC_URL"
 PRESIGN_SECONDS = "STORAGE_S3_PRESIGN_SECONDS"
+CACHE_CONTROL = "STORAGE_S3_CACHE_CONTROL"
 MAX_PRESIGN_SECONDS = 7 * 24 * 3600  # SigV4's limit
 META_SHA256 = "sha256"
 SPOOL = 8 * 1024 * 1024  # files up to this size stay in memory on their way in and out
@@ -81,6 +87,7 @@ class S3StorageProvider(StorageProvider):
             help="The bucket's public custom domain (recommended), e.g. https://assets.example.com; asset URLs are <base>/<prefix><key>",
         ),
         Setting(PRESIGN_SECONDS, "Presigned URL lifetime (s)", default="3600", help="Used only without a public base URL; at most 604800 (7 days)"),
+        Setting(CACHE_CONTROL, "Cache-Control", help="Optional Cache-Control stored with each new object, e.g. public, max-age=86400"),
     )
 
     def __init__(
@@ -90,12 +97,14 @@ class S3StorageProvider(StorageProvider):
         public_base_url: str | None = None,
         presign_seconds: int = 3600,
         client: Any = None,
+        cache_control: str | None = None,
     ) -> None:
         self.connection = connection
         self.bucket = connection.bucket
         self.prefix = normalize_prefix(prefix)
         self.public_base_url = (public_base_url or "").rstrip("/") or None
         self.presign_seconds = presign_seconds
+        self.cache_control = (cache_control or "").strip() or None
         self.client = client if client is not None else connection.client()
 
     @classmethod
@@ -111,6 +120,7 @@ class S3StorageProvider(StorageProvider):
             prefix=str(config.get(PREFIX) or ""),
             public_base_url=public or None,
             presign_seconds=int(raw),
+            cache_control=str(config.get(CACHE_CONTROL) or "") or None,
         )
 
     def _key(self, storage_key: str) -> str:
@@ -144,6 +154,7 @@ class S3StorageProvider(StorageProvider):
                 ContentLength=size,
                 ContentType=content_type or "application/octet-stream",
                 Metadata=object_meta,
+                **({"CacheControl": self.cache_control} if self.cache_control else {}),
             )
         return StorageMetadata(storage_key, size, content_type, checksum, metadata, "sha256")
 

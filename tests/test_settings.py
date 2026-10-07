@@ -124,6 +124,9 @@ def test_provider_from_core_style_settings():
     provider = S3StorageProvider.from_config(read_config(S3StorageProvider.settings, env))
     assert provider.get_public_url("ws/a.png") == "https://assets.iwobble.com/prod/ws/a.png"
     assert provider.connection.region == "auto"
+    assert provider.cache_control is None
+    cached = S3StorageProvider.from_config(read_config(S3StorageProvider.settings, {**env, "STORAGE_S3_CACHE_CONTROL": " public, max-age=86400 "}))
+    assert cached.cache_control == "public, max-age=86400"
 
 
 def test_plugin_offers_both_sides_under_one_slug():

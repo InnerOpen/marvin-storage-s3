@@ -91,7 +91,6 @@ mirror copies every asset again on each run, so use SSE-S3 (the default) for a b
 ## Asset storage
 
 ```bash
-STORAGE_PROVIDER=s3
 STORAGE_S3_BUCKET=marvin-assets
 STORAGE_S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
 STORAGE_S3_ACCESS_KEY=...          # from a Secret
@@ -109,15 +108,30 @@ STORAGE_REMOTE_PUBLIC_URL=https://assets.example.com
 | `STORAGE_S3_PREFIX` | | | Optional folder in the bucket, e.g. `prod/`. Asset rows keep the plain key. |
 | `STORAGE_REMOTE_PUBLIC_URL` | | | The bucket's public base URL (custom domain). Asset URLs are `<base>/<prefix><key>`. |
 | `STORAGE_S3_PRESIGN_SECONDS` | | `3600` | Lifetime of presigned URLs, used only without a public URL (max 604800). |
+| `STORAGE_S3_CACHE_CONTROL` | | | `Cache-Control` stored with each new object, which the CDN in front of the public domain and browsers honour, e.g. `public, max-age=86400`. Asset keys carry a UUID, so a long lifetime is safe; avoid `immutable` (a repair tool may rewrite a file in place). |
 | `STORAGE_S3_ADDRESSING_STYLE` | | `path` with an endpoint, `virtual` on AWS | `path`, `virtual` or `auto`. |
 | `STORAGE_S3_CHECKSUMS` | | `when_required` | `when_required` or `when_supported`. |
 
 **Public URLs.** Set `STORAGE_REMOTE_PUBLIC_URL` to a public custom domain on the bucket. That's the
 recommended setup: files are cached at the edge, and the URLs stay stable, so published sites can keep
 them. Without it, asset URLs are presigned GETs that expire. The bare endpoint URL is never handed out,
-because on R2 that is the private S3 API and browsers can't read from it. Existing assets keep serving
-from wherever their row says they live, so switching `STORAGE_PROVIDER` never breaks a URL. Moving old
-files is a separate migration.
+because on R2 that is the private S3 API and browsers can't read from it.
+
+**Turning it on.** With the plugin installed and the settings above present, a platform admin chooses
+where new uploads go under **Admin → Storage** (`STORAGE_PROVIDER` is only the default, so it can stay
+`local`), and can switch back at any time. Existing assets keep serving from wherever their row says
+they live, so switching never breaks a URL. Moving the old files is Marvin's
+`python -m marvin.scripts.storage_migrate --to s3 [--dry-run] [--verify]` (and `--to local` to roll
+back); `/assets/<key>` URLs stored before the move redirect to the new location. If the plugin or its
+settings go missing later, new uploads fall back to `STORAGE_PROVIDER` and the Storage page says why.
+
+**Backups of these assets.** A backup job mirrors assets from local disk and `STORAGE_PROVIDER`; add
+`BACKUP_ASSET_PROVIDERS=s3` and these `STORAGE_S3_*` settings to a backup target's environment to
+mirror this bucket too (bucket to bucket, on R2 or to a NAS target).
+
+**Browsers and CORS.** `<img>`, `<video>` and links need no CORS. Add a CORS rule on the bucket
+(GET/HEAD from your sites' origins) only if a page `fetch()`es assets or draws them to a canvas it
+reads back.
 
 Each upload's `sha256` is stored as object metadata, so the backup engine can check an asset without
 downloading it.
