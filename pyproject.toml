@@ -1,12 +1,12 @@
 [project]
 name = "marvin-storage-s3"
-version = "0.1.0"
+version = "0.2.0"
 description = "S3-compatible storage for Marvin (Cloudflare R2, AWS S3, MinIO, Backblaze B2): an asset storage provider and a backup target."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     # 0.7: the storage contract (StorageProvider, BackupTarget, StoragePlugin, Setting) and its conformance kit.
-    "marvin-integration-sdk>=0.7,<1",
+    "marvin-integration-sdk>=0.11,<1",
     # 1.36: request_checksum_calculation / response_checksum_validation (R2 and older MinIO need "when_required").
     "boto3>=1.36,<2",
 ]
@@ -32,7 +32,7 @@ packages = ["src/marvin_storage_s3"]
 # Dev only: the SDK commit Marvin core pins (pyproject.toml there), so tests run against the contract the
 # image ships. Released installs take the SDK from plugins.packages / the index.
 [tool.uv.sources]
-marvin-integration-sdk = { git = "https://github.com/InnerOpen/marvin-integration-sdk", rev = "424927150c217fd02519ecd679c9d05b3b835c69" }
+marvin-integration-sdk = { git = "https://github.com/InnerOpen/marvin-integration-sdk", tag = "v0.11.0" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

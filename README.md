@@ -149,6 +149,15 @@ reads back.
 Each upload's `sha256` is stored as object metadata, so the backup engine can check an asset without
 downloading it.
 
+## A workspace's own bucket (0.2.0)
+
+The provider also serves Marvin's "bring your own storage": one workspace keeps its assets in its own bucket.
+`S3StorageProvider.workspace_settings` is the asset settings minus the presign lifetime, with the access key,
+secret key and `STORAGE_REMOTE_PUBLIC_URL` required. Marvin builds that workspace's provider from those values
+only, so an empty key is refused instead of boto3 falling back to the pod's own credentials, and every file has a
+lasting public URL (a presigned one would expire and break built sites). `endpoint_setting` names
+`STORAGE_S3_ENDPOINT` for Marvin's endpoint policy.
+
 ## Credentials per provider
 
 Create one set of credentials **per bucket** (one for backups, another for assets), limited to that bucket.

@@ -26,6 +26,7 @@ import hashlib
 import re
 import tempfile
 from collections.abc import Iterator, Mapping
+from dataclasses import replace
 from typing import Any, BinaryIO
 from urllib.parse import quote
 
@@ -105,6 +106,13 @@ class S3StorageProvider(StorageProvider):
         Setting(PRESIGN_SECONDS, "Presigned URL lifetime (s)", default="3600", help="Used only without a public base URL; at most 604800 (7 days)"),
         Setting(CACHE_CONTROL, "Cache-Control", help="Optional Cache-Control stored with each new object, e.g. public, max-age=86400"),
     )
+    # A workspace's own bucket: its own keys (required, so boto3 never falls back to the pod's credentials) and a
+    # public base URL (required: without one, URLs are presigned and expire, which breaks built sites).
+    workspace_settings = tuple(
+        replace(s, required=True) if s.env in (ENV.access_key, ENV.secret_key, PUBLIC_URL) else s for s in settings if s.env != PRESIGN_SECONDS
+    )
+    endpoint_setting = ENV.endpoint
+    public_url_setting = PUBLIC_URL
 
     def __init__(
         self,

@@ -143,3 +143,19 @@ def test_entry_point_is_installed():
     (ep,) = [ep for ep in entry_points(group=ENTRY_POINT_GROUP) if ep.name == "s3"]
     assert ep.value == "marvin_storage_s3:plugin"
     assert ep.load()().slug == "s3"
+
+
+def test_a_workspace_bucket_needs_its_own_keys_and_a_public_url():
+    from marvin_integration_sdk.storage import workspace_settings_problems
+
+    assert workspace_settings_problems(S3StorageProvider) == []
+    required = {s.env for s in S3StorageProvider.workspace_settings if s.required}
+    assert required == {"STORAGE_S3_BUCKET", "STORAGE_S3_ACCESS_KEY", "STORAGE_S3_SECRET_KEY", "STORAGE_REMOTE_PUBLIC_URL"}
+    assert "STORAGE_S3_PRESIGN_SECONDS" not in {s.env for s in S3StorageProvider.workspace_settings}
+    assert (S3StorageProvider.endpoint_setting, S3StorageProvider.public_url_setting) == ("STORAGE_S3_ENDPOINT", "STORAGE_REMOTE_PUBLIC_URL")
+
+
+def test_empty_workspace_keys_are_refused_before_boto3_could_fall_back_to_the_pods_credentials():
+    workspace = {"STORAGE_S3_BUCKET": "theirs", "STORAGE_REMOTE_PUBLIC_URL": "https://files.example.com", "STORAGE_S3_ACCESS_KEY": ""}
+    with pytest.raises(StorageConfigError, match="STORAGE_S3_ACCESS_KEY, STORAGE_S3_SECRET_KEY"):
+        read_config(S3StorageProvider.workspace_settings, workspace)
