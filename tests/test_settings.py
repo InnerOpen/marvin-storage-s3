@@ -159,3 +159,12 @@ def test_empty_workspace_keys_are_refused_before_boto3_could_fall_back_to_the_po
     workspace = {"STORAGE_S3_BUCKET": "theirs", "STORAGE_REMOTE_PUBLIC_URL": "https://files.example.com", "STORAGE_S3_ACCESS_KEY": ""}
     with pytest.raises(StorageConfigError, match="STORAGE_S3_ACCESS_KEY, STORAGE_S3_SECRET_KEY"):
         read_config(S3StorageProvider.workspace_settings, workspace)
+
+
+def test_a_workspace_backup_bucket_needs_its_own_keys():
+    from marvin_integration_sdk.storage import workspace_settings_problems
+
+    assert workspace_settings_problems(S3BackupTarget) == []
+    required = {s.env for s in S3BackupTarget.workspace_settings if s.required}
+    assert required == {"BACKUP_S3_BUCKET", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"}
+    assert S3BackupTarget.endpoint_setting == "BACKUP_S3_ENDPOINT"

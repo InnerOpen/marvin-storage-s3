@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import shutil
 from collections.abc import Iterable, Mapping
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -46,6 +47,9 @@ class S3DeleteError(RuntimeError):
 class S3BackupTarget(BackupTarget):
     slug = "s3"
     settings = connection_settings(ENV)
+    # A workspace's own private backup bucket: its own keys, required (boto3 must never fall back to the pod's).
+    workspace_settings = tuple(replace(s, required=True) if s.env in (ENV.access_key, ENV.secret_key) else s for s in settings)
+    endpoint_setting = ENV.endpoint
 
     def __init__(self, connection: S3Connection, client: Any = None, multipart_threshold: int = MULTIPART_THRESHOLD) -> None:
         self.connection = connection

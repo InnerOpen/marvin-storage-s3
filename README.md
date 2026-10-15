@@ -158,6 +158,11 @@ only, so an empty key is refused instead of boto3 falling back to the pod's own 
 lasting public URL (a presigned one would expire and break built sites). `endpoint_setting` names
 `STORAGE_S3_ENDPOINT` for Marvin's endpoint policy.
 
+## A workspace's own backup bucket (0.3.0)
+
+`S3BackupTarget.workspace_settings` lets Marvin write one workspace's backups to that workspace's own private bucket:
+the target's settings with the access key and secret key required, built from the workspace's values only.
+
 ## Credentials per provider
 
 Create one set of credentials **per bucket** (one for backups, another for assets), limited to that bucket.
