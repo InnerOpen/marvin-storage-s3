@@ -95,6 +95,7 @@ def normalize_prefix(prefix: str | None) -> str:
 
 class S3StorageProvider(StorageProvider):
     slug = "s3"
+    logo = "logo.svg"  # a general object-storage mark (the provider covers R2, AWS S3, MinIO and B2 alike)
     settings = (
         *connection_settings(ENV),
         Setting(PREFIX, "Key prefix", help="Optional folder in the bucket for this environment's assets, e.g. prod/"),

@@ -1,6 +1,6 @@
 [project]
 name = "marvin-storage-s3"
-version = "0.3.0"
+version = "0.4.0"
 description = "S3-compatible storage for Marvin (Cloudflare R2, AWS S3, MinIO, Backblaze B2): an asset storage provider and a backup target."
 readme = "README.md"
 requires-python = ">=3.11"
